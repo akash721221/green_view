@@ -7,11 +7,11 @@ import VendorDashboard from './components/VendorDashboard';
 import { Vendor, ProduceItem, UserLocation, FilterOptions } from './types';
 import { StorageUtils } from './utils/storage';
 import { getUserLocation } from './utils/calculations';
-import { sampleVendors, sampleProduceItems, vendorCredentials } from './data/sampleData';
+import { vendors, items, vendorAuth } from './data/sampleData';
 
 const App: React.FC = () => {
-  const [vendors, setVendors] = useState<Vendor[]>([]);
-  const [items, setItems] = useState<ProduceItem[]>([]);
+  const [vendorsList, setVendorsList] = useState<Vendor[]>(vendors);
+  const [itemsList, setItemsList] = useState<ProduceItem[]>(items);
   const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
   const [locationError, setLocationError] = useState<string>('');
   const [locationLoading, setLocationLoading] = useState(false);
@@ -26,9 +26,9 @@ const App: React.FC = () => {
 
   // Initialize data on app load
   useEffect(() => {
-    StorageUtils.initializeData(sampleVendors, sampleProduceItems, vendorCredentials);
-    setVendors(StorageUtils.getVendors());
-    setItems(StorageUtils.getItems());
+    StorageUtils.initializeData(vendors, items, vendorAuth);
+    setVendorsList(StorageUtils.getVendors());
+    setItemsList(StorageUtils.getItems());
 
     // Check for existing session
     const existingUser = StorageUtils.getCurrentUser();
@@ -47,7 +47,7 @@ const App: React.FC = () => {
   const handleGetLocation = async () => {
     setLocationLoading(true);
     setLocationError('');
-    
+
     try {
       const location = await getUserLocation();
       setUserLocation(location);
@@ -86,7 +86,7 @@ const App: React.FC = () => {
                 <p className="text-sm text-gray-600">Local Produce Market</p>
               </div>
             </div>
-            
+
             <div className="flex items-center space-x-4">
               {!userLocation && (
                 <button
@@ -98,7 +98,7 @@ const App: React.FC = () => {
                   {locationLoading ? 'Locating...' : 'Get Location'}
                 </button>
               )}
-              
+
               <button
                 onClick={() => setIsLoginModalOpen(true)}
                 className="flex items-center px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-md transition-colors"
@@ -141,8 +141,8 @@ const App: React.FC = () => {
           {/* Map */}
           <div className="bg-white rounded-lg shadow-lg overflow-hidden" style={{ height: '70vh' }}>
             <MapView
-              vendors={vendors}
-              items={items}
+              vendors={vendorsList}
+              items={itemsList}
               userLocation={userLocation}
               filters={filters}
             />
