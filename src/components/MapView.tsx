@@ -1,4 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, Circle, LayersControl } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import { Vendor, ProduceItem, UserLocation, FilterOptions } from '../types';
 import { calculateDistance } from '../utils/calculations';
 
@@ -9,30 +12,18 @@ interface MapViewProps {
   filters: FilterOptions;
 }
 
-interface MapMarker {
-  id: string;
-  lat: number;
-  lng: number;
-  type: 'user' | 'vendor';
-  vendor?: Vendor;
-  distance?: number;
-  vendorItems?: ProduceItem[];
-}
-
 const MapView: React.FC<MapViewProps> = ({ vendors, items, userLocation, filters }) => {
   const [filteredVendors, setFilteredVendors] = useState<Vendor[]>([]);
   const [vendorDistances, setVendorDistances] = useState<Map<string, number>>(new Map());
-  const [markers, setMarkers] = useState<MapMarker[]>([]);
-  const [selectedMarker, setSelectedMarker] = useState<MapMarker | null>(null);
-  const [zoom, setZoom] = useState(5);
-  const [center, setCenter] = useState({ lat: 23.5937, lng: 78.9629 }); // India center
-  const mapRef = useRef<HTMLDivElement>(null);
+  const [mapCenter, setMapCenter] = useState<[number, number]>([23.5937, 78.9629]);
+  const [mapZoom, setMapZoom] = useState(6);
 
   // Filter vendors based on search criteria
   useEffect(() => {
+    // Show ALL active vendors without any filtering restrictions
     let filtered = vendors.filter(vendor => vendor.isActive);
 
-    // Apply search filter
+    // Only apply search filter if there's a search term
     if (filters.searchTerm) {
       const searchLower = filters.searchTerm.toLowerCase();
       filtered = filtered.filter(vendor => {
@@ -40,15 +31,6 @@ const MapView: React.FC<MapViewProps> = ({ vendors, items, userLocation, filters
         return vendor.name.toLowerCase().includes(searchLower) ||
           vendor.specialties.some(specialty => specialty.toLowerCase().includes(searchLower)) ||
           vendorItems.some(item => item.name.toLowerCase().includes(searchLower));
-      });
-    }
-
-    // Apply category filter
-    if (filters.categories.length > 0) {
-      filtered = filtered.filter(vendor => {
-        const vendorItems = items.filter(item => item.vendorId === vendor.id);
-        return vendorItems.some(item => filters.categories.includes(item.category)) ||
-          vendor.specialties.some(specialty => filters.categories.some(cat => specialty.includes(cat)));
       });
     }
 
@@ -60,241 +42,169 @@ const MapView: React.FC<MapViewProps> = ({ vendors, items, userLocation, filters
         distances.set(vendor.id, distance);
       });
 
-      if (filters.maxDistance > 0) {
-        filtered = filtered.filter(vendor => {
-          const distance = distances.get(vendor.id);
-          return distance === undefined || distance <= filters.maxDistance;
-        });
-      }
+      // Remove distance filtering - show all vendors regardless of distance
     }
 
-    // Apply sorting
+    // Sort by distance if user location is available, otherwise by name
     filtered.sort((a, b) => {
-      switch (filters.sortBy) {
-        case 'distance':
-          if (!userLocation) return 0;
-          const distA = distances.get(a.id) || 0;
-          const distB = distances.get(b.id) || 0;
-          return distA - distB;
-        case 'rating':
-          return b.rating - a.rating;
-        case 'name':
-          return a.name.localeCompare(b.name);
-        default:
-          return 0;
-      }
+      if (!userLocation) return a.name.localeCompare(b.name);
+      const distA = distances.get(a.id) || 0;
+      const distB = distances.get(b.id) || 0;
+      return distA - distB;
     });
 
     setFilteredVendors(filtered);
     setVendorDistances(distances);
   }, [vendors, items, userLocation, filters]);
 
-  // Update markers when filtered vendors change
+  // Auto-center map on user location when available
   useEffect(() => {
-    const newMarkers: MapMarker[] = [];
-
-    // Add user location marker
     if (userLocation) {
-      newMarkers.push({
-        id: 'user',
-        lat: userLocation.lat,
-        lng: userLocation.lng,
-        type: 'user'
-      });
+      setMapCenter([userLocation.lat, userLocation.lng]);
+      setMapZoom(14); // Good zoom level to show surrounding area
     }
+  }, [userLocation]);
 
-    // Add vendor markers
-    filteredVendors.forEach(vendor => {
-      const vendorItems = items.filter(item => item.vendorId === vendor.id);
-      const distance = vendorDistances.get(vendor.id);
-
-      newMarkers.push({
-        id: vendor.id,
-        lat: vendor.location.lat,
-        lng: vendor.location.lng,
-        type: 'vendor',
-        vendor,
-        distance,
-        vendorItems
-      });
+  // Custom marker icons
+  const createCustomIcon = (color: string) => {
+    return L.divIcon({
+      className: 'custom-marker',
+      html: `<div style="background-color: ${color}; width: 20px; height: 20px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
+      iconSize: [20, 20],
+      iconAnchor: [10, 10],
     });
-
-    setMarkers(newMarkers);
-
-    // Update center and zoom based on markers
-    if (newMarkers.length > 0) {
-      const lats = newMarkers.map(m => m.lat);
-      const lngs = newMarkers.map(m => m.lng);
-      const minLat = Math.min(...lats);
-      const maxLat = Math.max(...lats);
-      const minLng = Math.min(...lngs);
-      const maxLng = Math.max(...lngs);
-
-      setCenter({
-        lat: (minLat + maxLat) / 2,
-        lng: (minLng + maxLng) / 2
-      });
-
-      const latDiff = maxLat - minLat;
-      const lngDiff = maxLng - minLng;
-      const maxDiff = Math.max(latDiff, lngDiff);
-
-      if (maxDiff > 0.1) setZoom(10);
-      else if (maxDiff > 0.05) setZoom(12);
-      else setZoom(14);
-    }
-  }, [filteredVendors, vendorDistances, userLocation, items]);
-
-  // Convert lat/lng to pixel coordinates
-  const latLngToPixel = (lat: number, lng: number) => {
-    const mapWidth = 256;
-    const mapHeight = 256;
-
-    // Convert to mercator projection
-    const x = ((lng + 180) / 360) * mapWidth;
-    const y = ((1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2) * mapHeight;
-
-    return { x, y };
   };
 
-  // Handle marker click
-  const handleMarkerClick = (marker: MapMarker) => {
-    setSelectedMarker(marker);
-  };
-
-  // Close info window
-  const closeInfoWindow = () => {
-    setSelectedMarker(null);
-  };
-
-  // Get tile coordinates
-  const getTileCoordinates = (lat: number, lng: number, zoomLevel: number) => {
-    const n = Math.pow(2, zoomLevel);
-    const xtile = Math.floor((lng + 180) / 360 * n);
-    const ytile = Math.floor((1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * n);
-    return { x: xtile, y: ytile };
-  };
-
-  const tileCoords = getTileCoordinates(center.lat, center.lng, zoom);
+  const userIcon = createCustomIcon('#3B82F6'); // Blue
+  const vendorIcon = createCustomIcon('#10B981'); // Green
 
   return (
     <div className="h-full w-full relative">
-      {/* Custom Map Container */}
-      <div ref={mapRef} className="h-full w-full relative overflow-hidden map-container">
-        {/* Map Tiles */}
-        <div
-          className="absolute inset-0 map-tile"
-          style={{
-            backgroundImage: `url(https://tile.openstreetmap.org/${zoom}/${tileCoords.x}/${tileCoords.y}.png)`,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-            backgroundRepeat: 'no-repeat'
-          }}
-        />
+      <MapContainer
+        center={mapCenter}
+        zoom={mapZoom}
+        className="h-full w-full"
+        zoomControl={true}
+        attributionControl={true}
+      >
+        <LayersControl position="topright">
+          <LayersControl.BaseLayer checked name="OpenStreetMap">
+            <TileLayer
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              maxZoom={19}
+            />
+          </LayersControl.BaseLayer>
+          
+          <LayersControl.BaseLayer name="Satellite">
+            <TileLayer
+              attribution='&copy; <a href="https://www.esri.com/">Esri</a>'
+              url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+              maxZoom={19}
+            />
+          </LayersControl.BaseLayer>
+          
+          <LayersControl.BaseLayer name="Terrain">
+            <TileLayer
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+              url="https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png"
+              maxZoom={17}
+            />
+          </LayersControl.BaseLayer>
+        </LayersControl>
 
-        {/* Markers */}
-        {markers.map(marker => {
-          const isUser = marker.type === 'user';
-
-          // Calculate relative position within the visible area
-          const latDiff = marker.lat - center.lat;
-          const lngDiff = marker.lng - center.lng;
-
-          // Convert to percentage positions
-          const leftPercent = 50 + (lngDiff * 100);
-          const topPercent = 50 - (latDiff * 100);
-
-          return (
-            <div
-              key={marker.id}
-              className="absolute cursor-pointer transform -translate-x-1/2 -translate-y-full"
-              style={{
-                left: `${leftPercent}%`,
-                top: `${topPercent}%`,
-                zIndex: isUser ? 20 : 10
-              }}
-              onClick={() => handleMarkerClick(marker)}
+        {/* User location marker with accuracy circle */}
+        {userLocation && (
+          <>
+            <Marker
+              position={[userLocation.lat, userLocation.lng]}
+              icon={userIcon}
             >
-              <div
-                className={`w-4 h-4 rounded-full border-2 border-white shadow-lg ${isUser ? 'bg-blue-500' : 'bg-green-500'
-                  }`}
-                title={isUser ? 'Your Location' : marker.vendor?.name}
-              />
-            </div>
+              <Popup>
+                <div className="text-center">
+                  <h3 className="font-semibold text-blue-600">Your Location</h3>
+                  <p className="text-sm text-gray-600">
+                    Accuracy: ±{userLocation.accuracy.toFixed(0)}m
+                  </p>
+                </div>
+              </Popup>
+            </Marker>
+            <Circle
+              center={[userLocation.lat, userLocation.lng]}
+              radius={userLocation.accuracy}
+              pathOptions={{ color: 'blue', fillColor: 'blue', fillOpacity: 0.2, weight: 2 }}
+            />
+          </>
+        )}
+
+        {/* Vendor markers */}
+        {vendors.filter(v => v.isActive).map(vendor => {
+          const vendorItems = items.filter(item => item.vendorId === vendor.id && item.isAvailable);
+          const distance = vendorDistances.get(vendor.id);
+          
+          return (
+            <Marker
+              key={vendor.id}
+              position={[vendor.location.lat, vendor.location.lng]}
+              icon={vendorIcon}
+            >
+              <Popup maxWidth={300}>
+                <div className="p-2">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">{vendor.name}</h3>
+                  <p className="text-sm text-gray-600 mb-2">{vendor.description}</p>
+                  
+                  <div className="space-y-1 text-sm">
+                    <p><strong>Rating:</strong> ⭐ {vendor.rating}/5</p>
+                    {distance && (
+                      <p><strong>Distance:</strong> {distance.toFixed(1)} km</p>
+                    )}
+                    <p><strong>Items Available:</strong> {vendorItems.length}</p>
+                    <p><strong>Hours:</strong> {vendor.businessHours.open} - {vendor.businessHours.close}</p>
+                    <p><strong>Days:</strong> {vendor.businessHours.days.join(', ')}</p>
+                  </div>
+
+                  {vendorItems.length > 0 && (
+                    <div className="mt-3">
+                      <h4 className="font-medium text-gray-800 mb-1">Available Items:</h4>
+                      <div className="max-h-32 overflow-y-auto">
+                        {vendorItems.slice(0, 5).map(item => (
+                          <div key={item.id} className="text-xs text-gray-600 mb-1">
+                            • {item.name} - ₹{item.pricePerUnit}/{item.unit}
+                          </div>
+                        ))}
+                        {vendorItems.length > 5 && (
+                          <p className="text-xs text-gray-500">...and {vendorItems.length - 5} more</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </Popup>
+            </Marker>
           );
         })}
+      </MapContainer>
 
-        {/* Info Window */}
-        {selectedMarker && selectedMarker.type === 'vendor' && selectedMarker.vendor && (
-          <div className="absolute top-4 right-4 bg-white rounded-lg shadow-lg p-4 max-w-sm z-30">
-            <div className="flex justify-between items-start mb-2">
-              <h3 className="text-lg font-semibold text-gray-900">{selectedMarker.vendor.name}</h3>
-              <button
-                onClick={closeInfoWindow}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                ✕
-              </button>
-            </div>
-            <p className="text-sm text-gray-600 mb-2">{selectedMarker.vendor.description}</p>
-            <p className="text-sm text-gray-600 mb-1">
-              <strong>Rating:</strong> ⭐ {selectedMarker.vendor.rating}/5
-            </p>
-            {selectedMarker.distance && (
-              <p className="text-sm text-gray-600 mb-1">
-                <strong>Distance:</strong> {selectedMarker.distance.toFixed(1)} km
-              </p>
-            )}
-            <p className="text-sm text-gray-600 mb-1">
-              <strong>Items:</strong> {selectedMarker.vendorItems?.length || 0} available
-            </p>
-            <p className="text-sm text-gray-600 mb-1">
-              <strong>Hours:</strong> {selectedMarker.vendor.businessHours.open} - {selectedMarker.vendor.businessHours.close}
-            </p>
-            <p className="text-sm text-gray-600">
-              <strong>Days:</strong> {selectedMarker.vendor.businessHours.days.join(', ')}
-            </p>
-          </div>
+      {/* Results counter */}
+      <div className="absolute top-4 left-4 bg-white bg-opacity-90 backdrop-blur-sm px-3 py-2 rounded-lg shadow-md z-[1000]">
+        <p className="text-sm font-medium text-gray-700">
+          {vendors.filter(v => v.isActive).length} vendor{vendors.filter(v => v.isActive).length !== 1 ? 's' : ''} shown
+        </p>
+        {userLocation && (
+          <p className="text-xs text-gray-600 mt-1">
+            📍 Location detected with {userLocation.accuracy.toFixed(0)}m accuracy
+          </p>
         )}
       </div>
 
-      {/* Results counter */}
-      <div className="absolute top-4 left-4 bg-white bg-opacity-90 backdrop-blur-sm px-3 py-2 rounded-lg shadow-md z-10">
-        <p className="text-sm font-medium text-gray-700">
-          {filteredVendors.length} vendor{filteredVendors.length !== 1 ? 's' : ''} found
+      {/* Map quality indicator */}
+      <div className="absolute top-4 right-4 bg-white bg-opacity-90 backdrop-blur-sm px-3 py-2 rounded-lg shadow-md z-[1000]">
+        <p className="text-xs font-medium text-green-600">
+          🗺️ High-Quality Map View
         </p>
-      </div>
-
-      {/* Map Controls */}
-      <div className="absolute bottom-4 right-4 bg-white rounded-lg shadow-md p-2 z-10">
-        <div className="flex flex-col space-y-1">
-          <button
-            onClick={() => setZoom(Math.min(zoom + 1, 18))}
-            className="w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded flex items-center justify-center"
-          >
-            +
-          </button>
-          <button
-            onClick={() => setZoom(Math.max(zoom - 1, 8))}
-            className="w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded flex items-center justify-center"
-          >
-            −
-          </button>
-        </div>
-      </div>
-
-      {/* Legend */}
-      <div className="absolute bottom-4 left-4 bg-white bg-opacity-90 backdrop-blur-sm px-3 py-2 rounded-lg shadow-md z-10">
-        <div className="flex items-center space-x-4 text-sm">
-          <div className="flex items-center space-x-1">
-            <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-            <span>Your Location</span>
-          </div>
-          <div className="flex items-center space-x-1">
-            <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-            <span>Vendors</span>
-          </div>
-        </div>
+        <p className="text-xs text-gray-600">
+          All layers • No filters • Unlimited range
+        </p>
       </div>
     </div>
   );

@@ -19,7 +19,7 @@ const App: React.FC = () => {
   const [currentVendorId, setCurrentVendorId] = useState<string | null>(null);
   const [filters, setFilters] = useState<FilterOptions>({
     categories: [],
-    maxDistance: 25,
+    maxDistance: 1000, // Set to unlimited (1000km)
     searchTerm: '',
     sortBy: 'distance'
   });
@@ -40,6 +40,9 @@ const App: React.FC = () => {
     const savedLocation = StorageUtils.getUserLocation();
     if (savedLocation) {
       setUserLocation(savedLocation);
+    } else {
+      // Automatically attempt to get user location on app load
+      handleGetLocation();
     }
   }, []);
 
@@ -116,27 +119,34 @@ const App: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           {/* Location Error */}
           {locationError && (
-            <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-md flex items-center">
-              <AlertCircle className="w-5 h-5 text-yellow-600 mr-3" />
+            <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md flex items-center">
+              <AlertCircle className="w-5 h-5 text-red-600 mr-3" />
               <div>
-                <p className="text-sm font-medium text-yellow-800">Location Access</p>
-                <p className="text-sm text-yellow-700">{locationError}</p>
+                <p className="text-sm font-medium text-red-800">Location Access Required</p>
+                <p className="text-sm text-red-700">{locationError}</p>
               </div>
               <button
                 onClick={handleGetLocation}
-                className="ml-auto px-3 py-1 text-sm bg-yellow-100 hover:bg-yellow-200 text-yellow-800 rounded transition-colors"
-              >
+                className="ml-auto px-3 py-1 text-sm bg-red-100 hover:bg-red-200 text-red-800 rounded transition-colors"
+                className="flex items-center px-3 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-md transition-colors disabled:opacity-50"
                 Try Again
               </button>
             </div>
           )}
+            {userLocation && (
+              <div className="flex items-center px-3 py-2 text-sm font-medium text-green-700 bg-green-50 rounded-md">
+                <MapPin className="w-4 h-4 mr-2" />
+                Location Active
+              </div>
+            )}
+
 
           {/* Search and Filters */}
-          <SearchFilters
+          {/* <SearchFilters
             filters={filters}
             onFiltersChange={setFilters}
             userLocation={userLocation}
-          />
+          /> */}
 
           {/* Map */}
           <div className="bg-white rounded-lg shadow-lg overflow-hidden" style={{ height: '70vh' }}>
@@ -150,28 +160,28 @@ const App: React.FC = () => {
 
           {/* Info Section */}
           <div className="mt-8 bg-white rounded-lg shadow p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Welcome to Fresh Connect</h2>
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">High-Quality Location-Based Vendor Discovery</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="text-center">
                 <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mx-auto mb-3">
                   <MapPin className="w-6 h-6 text-green-600" />
                 </div>
-                <h3 className="font-medium text-gray-900 mb-2">Find Local Vendors</h3>
-                <p className="text-sm text-gray-600">Discover fresh produce vendors near you with real-time locations and availability.</p>
+                <h3 className="font-medium text-gray-900 mb-2">Automatic Location Detection</h3>
+                <p className="text-sm text-gray-600">GPS-powered location detection centers the map on your exact coordinates with high accuracy.</p>
+              </div>
+              <div className="text-center">
+                <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mx-auto mb-3">
+                  <MapPin className="w-6 h-6 text-green-600" />
+                </div>
+                <h3 className="font-medium text-gray-900 mb-2">High-Resolution Mapping</h3>
+                <p className="text-sm text-gray-600">Multiple map layers including satellite, terrain, and street view with maximum clarity and detail.</p>
               </div>
               <div className="text-center">
                 <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mx-auto mb-3">
                   <Leaf className="w-6 h-6 text-green-600" />
                 </div>
-                <h3 className="font-medium text-gray-900 mb-2">Fresh & Local</h3>
-                <p className="text-sm text-gray-600">Support local farmers and enjoy the freshest seasonal produce available in your area.</p>
-              </div>
-              <div className="text-center">
-                <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mx-auto mb-3">
-                  <User className="w-6 h-6 text-green-600" />
-                </div>
-                <h3 className="font-medium text-gray-900 mb-2">For Vendors</h3>
-                <p className="text-sm text-gray-600">Join our platform to manage inventory, reach more customers, and grow your business.</p>
+                <h3 className="font-medium text-gray-900 mb-2">Unlimited Range</h3>
+                <p className="text-sm text-gray-600">No distance restrictions or filters - view all available vendors and locations in comprehensive detail.</p>
               </div>
             </div>
           </div>

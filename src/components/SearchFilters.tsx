@@ -16,6 +16,16 @@ const SORT_OPTIONS = [
 ];
 
 const SearchFilters: React.FC<SearchFiltersProps> = ({ filters, onFiltersChange, userLocation }) => {
+  // Reset all filters to show everything
+  React.useEffect(() => {
+    onFiltersChange({
+      categories: [],
+      maxDistance: 1000, // Set to very high value (1000km)
+      searchTerm: '',
+      sortBy: 'distance'
+    });
+  }, []);
+
   const handleSearchChange = (searchTerm: string) => {
     onFiltersChange({ ...filters, searchTerm });
   };
