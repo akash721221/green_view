@@ -1,9 +1,21 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Circle, LayersControl } from 'react-leaflet';
+import { useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Vendor, ProduceItem, UserLocation, FilterOptions } from '../types';
 import { calculateDistance } from '../utils/calculations';
+
+// Component to update map center when user location changes
+const MapUpdater: React.FC<{ center: [number, number]; zoom: number }> = ({ center, zoom }) => {
+  const map = useMap();
+  
+  useEffect(() => {
+    map.setView(center, zoom);
+  }, [map, center, zoom]);
+  
+  return null;
+};
 
 interface MapViewProps {
   vendors: Vendor[];
@@ -15,8 +27,8 @@ interface MapViewProps {
 const MapView: React.FC<MapViewProps> = ({ vendors, items, userLocation, filters }) => {
   const [filteredVendors, setFilteredVendors] = useState<Vendor[]>([]);
   const [vendorDistances, setVendorDistances] = useState<Map<string, number>>(new Map());
-  const [mapCenter, setMapCenter] = useState<[number, number]>([23.5937, 78.9629]);
-  const [mapZoom, setMapZoom] = useState(6);
+  const [mapCenter, setMapCenter] = useState<[number, number]>([28.6139, 77.2090]); // Default to Delhi
+  const [mapZoom, setMapZoom] = useState(12);
 
   // Filter vendors based on search criteria
   useEffect(() => {
@@ -57,13 +69,18 @@ const MapView: React.FC<MapViewProps> = ({ vendors, items, userLocation, filters
     setVendorDistances(distances);
   }, [vendors, items, userLocation, filters]);
 
-  // Auto-center map on user location when available
+  // Auto-center map on user location when available with appropriate zoom for 15km radius
   useEffect(() => {
     if (userLocation) {
       setMapCenter([userLocation.lat, userLocation.lng]);
-      setMapZoom(14); // Good zoom level to show surrounding area
+      setMapZoom(12); // Zoom level that shows approximately 15km radius
     }
   }, [userLocation]);
+
+  // Filter vendors within 15km radius
+  const nearbyVendors = userLocation 
+    ? vendors.filter(vendor => calculateDistance(userLocation, vendor.location) <= 15)
+    : vendors;
 
   // Custom marker icons
   const createCustomIcon = (color: string) => {
@@ -89,6 +106,7 @@ const MapView: React.FC<MapViewProps> = ({ vendors, items, userLocation, filters
       >
         <LayersControl position="topright">
           <LayersControl.BaseLayer checked name="OpenStreetMap">
+            <MapUpdater center={mapCenter} zoom={mapZoom} />
             <TileLayer
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -97,6 +115,7 @@ const MapView: React.FC<MapViewProps> = ({ vendors, items, userLocation, filters
           </LayersControl.BaseLayer>
           
           <LayersControl.BaseLayer name="Satellite">
+            <MapUpdater center={mapCenter} zoom={mapZoom} />
             <TileLayer
               attribution='&copy; <a href="https://www.esri.com/">Esri</a>'
               url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
@@ -105,6 +124,7 @@ const MapView: React.FC<MapViewProps> = ({ vendors, items, userLocation, filters
           </LayersControl.BaseLayer>
           
           <LayersControl.BaseLayer name="Terrain">
+            <MapUpdater center={mapCenter} zoom={mapZoom} />
             <TileLayer
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
               url="https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png"
@@ -112,6 +132,15 @@ const MapView: React.FC<MapViewProps> = ({ vendors, items, userLocation, filters
             />
           </LayersControl.BaseLayer>
         </LayersControl>
+
+        {/* 15km radius circle around user location */}
+        {userLocation && (
+          <Circle
+            center={[userLocation.lat, userLocation.lng]}
+            radius={15000} // 15km in meters
+            pathOptions={{ color: 'green', fillColor: 'green', fillOpacity: 0.1, weight: 2 }}
+          />
+        )}
 
         {/* User location marker with accuracy circle */}
         {userLocation && (
@@ -138,7 +167,7 @@ const MapView: React.FC<MapViewProps> = ({ vendors, items, userLocation, filters
         )}
 
         {/* Vendor markers */}
-        {vendors.filter(v => v.isActive).map(vendor => {
+        {nearbyVendors.filter(v => v.isActive).map(vendor => {
           const vendorItems = items.filter(item => item.vendorId === vendor.id && item.isAvailable);
           const distance = vendorDistances.get(vendor.id);
           
@@ -188,7 +217,7 @@ const MapView: React.FC<MapViewProps> = ({ vendors, items, userLocation, filters
       {/* Results counter */}
       <div className="absolute top-4 left-4 bg-white bg-opacity-90 backdrop-blur-sm px-3 py-2 rounded-lg shadow-md z-[1000]">
         <p className="text-sm font-medium text-gray-700">
-          {vendors.filter(v => v.isActive).length} vendor{vendors.filter(v => v.isActive).length !== 1 ? 's' : ''} shown
+          {nearbyVendors.filter(v => v.isActive).length} vendor{nearbyVendors.filter(v => v.isActive).length !== 1 ? 's' : ''} within 15km
         </p>
         {userLocation && (
           <p className="text-xs text-gray-600 mt-1">
@@ -200,10 +229,10 @@ const MapView: React.FC<MapViewProps> = ({ vendors, items, userLocation, filters
       {/* Map quality indicator */}
       <div className="absolute top-4 right-4 bg-white bg-opacity-90 backdrop-blur-sm px-3 py-2 rounded-lg shadow-md z-[1000]">
         <p className="text-xs font-medium text-green-600">
-          🗺️ High-Quality Map View
+          🗺️ 15km Radius View
         </p>
         <p className="text-xs text-gray-600">
-          All layers • No filters • Unlimited range
+          Centered on your location • High resolution
         </p>
       </div>
     </div>
