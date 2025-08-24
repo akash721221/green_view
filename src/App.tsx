@@ -128,7 +128,7 @@ const App: React.FC = () => {
               <button
                 onClick={handleGetLocation}
                 className="ml-auto px-3 py-1 text-sm bg-red-100 hover:bg-red-200 text-red-800 rounded transition-colors"
-                className="flex items-center px-3 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-md transition-colors disabled:opacity-50"
+              >
                 Try Again
               </button>
             </div>
