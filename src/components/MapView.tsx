@@ -30,7 +30,7 @@ const MapView: React.FC<MapViewProps> = ({ vendors, items, userLocation, filters
   const [mapCenter, setMapCenter] = useState<[number, number]>([28.6139, 77.2090]); // Default to Delhi
   const [mapZoom, setMapZoom] = useState(15); // Zoom level 15 shows approximately 3km radius
   const mapRef = useRef<L.Map | null>(null);
-  const DEFAULT_ZOOM = 5; // 3km radius zoom level
+  const DEFAULT_ZOOM = 55; // 3km radius zoom level
 
   // Filter vendors based on search criteria
   useEffect(() => {
