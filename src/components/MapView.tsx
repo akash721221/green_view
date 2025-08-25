@@ -150,47 +150,77 @@ const MapView: React.FC<MapViewProps> = ({ vendors, items, userLocation, filters
         </LayersControl>
 
         {/* 1km default radius circle around user location */}
+
+        {/* User location marker - center dot only */}
         {userLocation && (
-          <Circle
-            center={[userLocation.lat, userLocation.lng]}
-            radius={1000} // 1km in meters
-            pathOptions={{ color: '#22C55E', fillColor: '#22C55E', fillOpacity: 0.15, weight: 2, dashArray: '5, 5' }}
-          />
+          <Marker
+            position={[userLocation.lat, userLocation.lng]}
+            icon={userIcon}
+          >
+            <Popup>
+              <div className="text-center">
+                <h3 className="font-semibold text-blue-600">Your Location</h3>
+                <p className="text-sm text-gray-600">
+                  Accuracy: ±{userLocation.accuracy.toFixed(0)}m
+                </p>
+              </div>
+            </Popup>
+          </Marker>
         )}
 
-        {/* 15km maximum search radius circle */}
-        {userLocation && (
-          <Circle
-            center={[userLocation.lat, userLocation.lng]}
-            radius={15000} // 15km in meters
-            pathOptions={{ color: '#6B7280', fillColor: 'transparent', fillOpacity: 0, weight: 1, dashArray: '10, 10' }}
-          />
-        )}
-
-        {/* User location marker with accuracy circle */}
-        {userLocation && (
-          <>
-            <Marker
-              position={[userLocation.lat, userLocation.lng]}
-              icon={userIcon}
-            >
-              <Popup>
-                <div className="text-center">
-                  <h3 className="font-semibold text-blue-600">Your Location</h3>
-                  <p className="text-sm text-gray-600">
-                    Accuracy: ±{userLocation.accuracy.toFixed(0)}m
-                  </p>
+        {/* 3 Fake vendors within 1km radius */}
+        {userLocation && [
+          {
+            id: 'fake-vendor-1',
+            name: 'Fresh Corner Market',
+            lat: userLocation.lat + 0.003,
+            lng: userLocation.lng + 0.004,
+            rating: 4.5,
+            items: ['Fresh Tomatoes - ₹40/kg', 'Organic Spinach - ₹30/kg', 'Local Onions - ₹25/kg']
+          },
+          {
+            id: 'fake-vendor-2', 
+            name: 'Green Valley Produce',
+            lat: userLocation.lat - 0.005,
+            lng: userLocation.lng + 0.002,
+            rating: 4.7,
+            items: ['Fresh Carrots - ₹35/kg', 'Sweet Corn - ₹50/kg', 'Green Peas - ₹60/kg']
+          },
+          {
+            id: 'fake-vendor-3',
+            name: 'Local Farm Store',
+            lat: userLocation.lat + 0.002,
+            lng: userLocation.lng - 0.006,
+            rating: 4.3,
+            items: ['Fresh Potatoes - ₹30/kg', 'Organic Broccoli - ₹80/kg', 'Bell Peppers - ₹70/kg']
+          }
+        ].map(vendor => (
+          <Marker
+            key={vendor.id}
+            position={[vendor.lat, vendor.lng]}
+            icon={vendorIcon}
+          >
+            <Popup maxWidth={300}>
+              <div className="p-2">
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">{vendor.name}</h3>
+                <div className="space-y-1 text-sm">
+                  <p><strong>Rating:</strong> ⭐ {vendor.rating}/5</p>
+                  <p><strong>Distance:</strong> {(Math.random() * 0.8 + 0.1).toFixed(1)} km</p>
                 </div>
-              </Popup>
-            </Marker>
-            <Circle
-              center={[userLocation.lat, userLocation.lng]}
-              radius={userLocation.accuracy}
-              pathOptions={{ color: 'blue', fillColor: 'blue', fillOpacity: 0.2, weight: 2 }}
-            />
-          </>
-        )}
-
+                <div className="mt-3">
+                  <h4 className="font-medium text-gray-800 mb-1">Available Items:</h4>
+                  <div className="max-h-32 overflow-y-auto">
+                    {vendor.items.map((item, index) => (
+                      <div key={index} className="text-xs text-gray-600 mb-1">
+                        • {item}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </Popup>
+          </Marker>
+        ))}
         {/* Vendor markers */}
         {nearbyVendors.filter(v => v.isActive).map(vendor => {
           const vendorItems = items.filter(item => item.vendorId === vendor.id && item.isAvailable);
@@ -242,11 +272,11 @@ const MapView: React.FC<MapViewProps> = ({ vendors, items, userLocation, filters
       {/* Results counter */}
       <div className="absolute top-4 left-4 bg-white bg-opacity-90 backdrop-blur-sm px-3 py-2 rounded-lg shadow-md z-[1000]">
         <p className="text-sm font-medium text-gray-700">
-          {nearbyVendors.filter(v => v.isActive).length} vendor{nearbyVendors.filter(v => v.isActive).length !== 1 ? 's' : ''} within search area
+          {nearbyVendors.filter(v => v.isActive).length + 3} vendor{nearbyVendors.filter(v => v.isActive).length + 3 !== 1 ? 's' : ''} within search area
         </p>
         {userLocation && (
           <p className="text-xs text-gray-600 mt-1">
-            📍 Location detected with {userLocation.accuracy.toFixed(0)}m accuracy
+            📍 Your location • 3 nearby vendors
           </p>
         )}
       </div>
