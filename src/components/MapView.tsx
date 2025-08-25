@@ -28,7 +28,9 @@ const MapView: React.FC<MapViewProps> = ({ vendors, items, userLocation, filters
   const [filteredVendors, setFilteredVendors] = useState<Vendor[]>([]);
   const [vendorDistances, setVendorDistances] = useState<Map<string, number>>(new Map());
   const [mapCenter, setMapCenter] = useState<[number, number]>([28.6139, 77.2090]); // Default to Delhi
-  const [mapZoom, setMapZoom] = useState(12);
+  const [mapZoom, setMapZoom] = useState(15); // Zoom level 15 shows approximately 3km radius
+  const mapRef = useRef<L.Map | null>(null);
+  const DEFAULT_ZOOM = 15; // 3km radius zoom level
 
   // Filter vendors based on search criteria
   useEffect(() => {
@@ -73,9 +75,19 @@ const MapView: React.FC<MapViewProps> = ({ vendors, items, userLocation, filters
   useEffect(() => {
     if (userLocation) {
       setMapCenter([userLocation.lat, userLocation.lng]);
-      setMapZoom(12); // Zoom level that shows approximately 15km radius
+      setMapZoom(DEFAULT_ZOOM); // Zoom level that shows approximately 3km radius
     }
   }, [userLocation]);
+
+  // Reset to default 3km radius view
+  const resetToDefaultZoom = () => {
+    if (userLocation && mapRef.current) {
+      mapRef.current.setView([userLocation.lat, userLocation.lng], DEFAULT_ZOOM, {
+        animate: true,
+        duration: 0.5
+      });
+    }
+  };
 
   // Filter vendors within 15km radius
   const nearbyVendors = userLocation 
@@ -98,11 +110,15 @@ const MapView: React.FC<MapViewProps> = ({ vendors, items, userLocation, filters
   return (
     <div className="h-full w-full relative">
       <MapContainer
+        ref={mapRef}
         center={mapCenter}
         zoom={mapZoom}
         className="h-full w-full"
         zoomControl={true}
         attributionControl={true}
+        whenCreated={(map) => {
+          mapRef.current = map;
+        }}
       >
         <LayersControl position="topright">
           <LayersControl.BaseLayer checked name="OpenStreetMap">
@@ -133,12 +149,21 @@ const MapView: React.FC<MapViewProps> = ({ vendors, items, userLocation, filters
           </LayersControl.BaseLayer>
         </LayersControl>
 
-        {/* 15km radius circle around user location */}
+        {/* 3km default radius circle around user location */}
+        {userLocation && (
+          <Circle
+            center={[userLocation.lat, userLocation.lng]}
+            radius={3000} // 3km in meters
+            pathOptions={{ color: '#22C55E', fillColor: '#22C55E', fillOpacity: 0.15, weight: 2, dashArray: '5, 5' }}
+          />
+        )}
+
+        {/* 15km maximum search radius circle */}
         {userLocation && (
           <Circle
             center={[userLocation.lat, userLocation.lng]}
             radius={15000} // 15km in meters
-            pathOptions={{ color: 'green', fillColor: 'green', fillOpacity: 0.1, weight: 2 }}
+            pathOptions={{ color: '#6B7280', fillColor: 'transparent', fillOpacity: 0, weight: 1, dashArray: '10, 10' }}
           />
         )}
 
@@ -217,7 +242,7 @@ const MapView: React.FC<MapViewProps> = ({ vendors, items, userLocation, filters
       {/* Results counter */}
       <div className="absolute top-4 left-4 bg-white bg-opacity-90 backdrop-blur-sm px-3 py-2 rounded-lg shadow-md z-[1000]">
         <p className="text-sm font-medium text-gray-700">
-          {nearbyVendors.filter(v => v.isActive).length} vendor{nearbyVendors.filter(v => v.isActive).length !== 1 ? 's' : ''} within 15km
+          {nearbyVendors.filter(v => v.isActive).length} vendor{nearbyVendors.filter(v => v.isActive).length !== 1 ? 's' : ''} within search area
         </p>
         {userLocation && (
           <p className="text-xs text-gray-600 mt-1">
@@ -226,14 +251,27 @@ const MapView: React.FC<MapViewProps> = ({ vendors, items, userLocation, filters
         )}
       </div>
 
-      {/* Map quality indicator */}
+      {/* Map controls and quality indicator */}
       <div className="absolute top-4 right-4 bg-white bg-opacity-90 backdrop-blur-sm px-3 py-2 rounded-lg shadow-md z-[1000]">
         <p className="text-xs font-medium text-green-600">
-          🗺️ 15km Radius View
+          🗺️ 3km Default View
         </p>
         <p className="text-xs text-gray-600">
-          Centered on your location • High resolution
+          Default radius • High resolution
         </p>
+        {userLocation && (
+          <button
+            onClick={resetToDefaultZoom}
+            className="mt-2 w-full px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
+          >
+            Reset to 3km View
+          </button>
+        )}
+      </div>
+
+      {/* Zoom level indicator */}
+      <div className="absolute bottom-4 right-4 bg-white bg-opacity-90 backdrop-blur-sm px-2 py-1 rounded shadow-md z-[1000]">
+        <p className="text-xs text-gray-600">3km default • 15km max search</p>
       </div>
     </div>
   );
