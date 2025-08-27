@@ -4,9 +4,10 @@ import MapView from './components/MapView';
 import SearchFilters from './components/SearchFilters';
 import VendorLoginModal from './components/VendorLoginModal';
 import VendorDashboard from './components/VendorDashboard';
+import VendorDetailsPage from './components/VendorDetailsPage';
 import { Vendor, ProduceItem, UserLocation, FilterOptions } from './types';
 import { StorageUtils } from './utils/storage';
-import { getUserLocation } from './utils/calculations';
+import { getUserLocation, calculateDistance } from './utils/calculations';
 import { vendors, items, vendorAuth } from './data/sampleData';
 
 const App: React.FC = () => {
@@ -17,6 +18,7 @@ const App: React.FC = () => {
   const [locationLoading, setLocationLoading] = useState(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [currentVendorId, setCurrentVendorId] = useState<string | null>(null);
+  const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
   const [filters, setFilters] = useState<FilterOptions>({
     categories: [],
     maxDistance: 1000, // Set to unlimited (1000km)
@@ -71,9 +73,33 @@ const App: React.FC = () => {
     setCurrentVendorId(null);
   };
 
+  const handleVendorSelect = (vendor: Vendor) => {
+    setSelectedVendor(vendor);
+  };
+
+  const handleBackToMap = () => {
+    setSelectedVendor(null);
+  };
+
   // If vendor is logged in, show dashboard
   if (currentVendorId) {
     return <VendorDashboard vendorId={currentVendorId} onLogout={handleVendorLogout} />;
+  }
+
+  // If vendor is selected, show vendor details page
+  if (selectedVendor) {
+    const vendorItems = itemsList.filter(item => item.vendorId === selectedVendor.id);
+    const distance = userLocation ? calculateDistance(userLocation, selectedVendor.location) : undefined;
+    
+    return (
+      <VendorDetailsPage
+        vendor={selectedVendor}
+        items={vendorItems}
+        onBack={handleBackToMap}
+        userLocation={userLocation}
+        distance={distance}
+      />
+    );
   }
 
   return (
@@ -155,6 +181,7 @@ const App: React.FC = () => {
               items={itemsList}
               userLocation={userLocation}
               filters={filters}
+              onVendorSelect={handleVendorSelect}
             />
           </div>
 

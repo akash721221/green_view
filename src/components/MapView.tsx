@@ -22,9 +22,10 @@ interface MapViewProps {
   items: ProduceItem[];
   userLocation: UserLocation | null;
   filters: FilterOptions;
+  onVendorSelect?: (vendor: Vendor) => void;
 }
 
-const MapView: React.FC<MapViewProps> = ({ vendors, items, userLocation, filters }) => {
+const MapView: React.FC<MapViewProps> = ({ vendors, items, userLocation, filters, onVendorSelect }) => {
   const [filteredVendors, setFilteredVendors] = useState<Vendor[]>([]);
   const [vendorDistances, setVendorDistances] = useState<Map<string, number>>(new Map());
   const [mapCenter, setMapCenter] = useState<[number, number]>([28.6139, 77.2090]); // Default to Delhi
@@ -216,6 +217,32 @@ const MapView: React.FC<MapViewProps> = ({ vendors, items, userLocation, filters
                       </div>
                     ))}
                   </div>
+                  <div className="mt-3 pt-3 border-t border-gray-100 flex justify-end">
+                    <button
+                      onClick={() => {
+                        // Create a fake vendor object for the fake vendors
+                        const fakeVendor: Vendor = {
+                          id: vendor.id,
+                          name: vendor.name,
+                          location: { lat: vendor.lat, lng: vendor.lng },
+                          contact: { phone: '+91-11-12345678', email: 'contact@vendor.com' },
+                          businessHours: {
+                            open: '06:00',
+                            close: '20:00',
+                            days: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+                          },
+                          specialties: ['Fresh', 'Local', 'Organic'],
+                          rating: vendor.rating,
+                          description: 'Fresh local produce from trusted farmers',
+                          isActive: true
+                        };
+                        onVendorSelect?.(fakeVendor);
+                      }}
+                      className="px-3 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 transition-colors"
+                    >
+                      More
+                    </button>
+                  </div>
                 </div>
               </div>
             </Popup>
@@ -243,6 +270,15 @@ const MapView: React.FC<MapViewProps> = ({ vendors, items, userLocation, filters
                       <p><strong>Distance:</strong> {distance.toFixed(1)} km</p>
                     )}
                     <p><strong>Items Available:</strong> {vendorItems.length}</p>
+
+                  <div className="mt-3 pt-3 border-t border-gray-100 flex justify-end">
+                    <button
+                      onClick={() => onVendorSelect?.(vendor)}
+                      className="px-3 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 transition-colors"
+                    >
+                      More
+                    </button>
+                  </div>
                     <p><strong>Hours:</strong> {vendor.businessHours.open} - {vendor.businessHours.close}</p>
                     <p><strong>Days:</strong> {vendor.businessHours.days.join(', ')}</p>
                   </div>
