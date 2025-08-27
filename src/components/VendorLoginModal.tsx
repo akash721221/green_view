@@ -119,8 +119,13 @@ const VendorLoginModal: React.FC<VendorLoginModalProps> = ({ isOpen, onClose, on
 
           <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-md">
             <p className="text-sm text-green-800 font-medium mb-2">Demo Credentials:</p>
-            <p className="text-xs text-green-700">Username: fresh_fields</p>
-            <p className="text-xs text-green-700">Password: farm2024</p>
+            <p className="text-xs text-green-700">Username: freshfarm</p>
+            <p className="text-xs text-green-700">Password: delhi123</p>
+            <div className="mt-2 pt-2 border-t border-green-300">
+              <p className="text-xs text-green-600 font-medium">More Demo Accounts:</p>
+              <p className="text-xs text-green-700">mumbaifresh / mumbai456</p>
+              <p className="text-xs text-green-700">bangaloreorganic / bangalore789</p>
+            </div>
           </div>
         </form>
       </div>
